@@ -1,16 +1,15 @@
 #!/usr/bin/env python
+from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import readline
 import sys
-
-user_input_name = '.up.fifo'
-results_name = '.down.fifo'
 
 
 def run_client(path):
-    pipein = open(os.path.join(path, results_name), "r", 0)
-    pipeout = open(os.path.join(path, user_input_name), "w", 0)
+    pipein = open(os.path.join(path, ".down.fifo"), "r", 0)
+    pipeout = open(os.path.join(path, ".up.fifo"), "w", 0)
 
     def readline():
         while True:
@@ -21,7 +20,6 @@ def run_client(path):
                       "destabilize the Indigo plugin. If you think it's "
                       "really hung, reloading the plugin from the Indigo "
                       "Plugins menu is probably the best idea.")
-
     try:
         while True:
             cmd = readline()
@@ -35,7 +33,10 @@ def run_client(path):
                     break
                 pipeout.write(line + "\n")
             elif cmd.startswith("PRINT "):
-                count = int(cmd[6:-1])
+                text = cmd[6:-1]
+                print(text, end="")
+            elif cmd.startswith("PRINTLINE "):
+                count = int(cmd[10:-1])
                 for i in range(count):
                     print(readline()[:-1])
             else:
@@ -44,7 +45,6 @@ def run_client(path):
     except IOError:
         pass
 
-                
+
 if __name__ == "__main__":
     run_client(sys.argv[1])
-
