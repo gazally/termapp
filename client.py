@@ -2,14 +2,21 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import io
 import os
 import readline
 import sys
 
 
 def run_client(path):
-    pipein = open(os.path.join(path, ".down.fifo"), "r", 0)
-    pipeout = open(os.path.join(path, ".up.fifo"), "w", 0)
+    encoding = sys.stdin.encoding
+    with open(os.path.join(path, ".up.fifo"), "w") as pipeout:
+        pipeout.write(encoding + "\n")
+
+    pipein = io.open(os.path.join(path, ".down.fifo"), "r",
+                     encoding=encoding, buffering=1)
+    pipeout = io.open(os.path.join(path, ".up.fifo"), "w",
+                      encoding=encoding, buffering=1)
 
     def readline():
         while True:
@@ -25,20 +32,19 @@ def run_client(path):
             cmd = readline()
             if not cmd:
                 break
+            elif cmd.startswith("ENCODING"):
+                pipeout.write(encoding + "\n")
             elif cmd.startswith("PROMPT "):
                 prompt = cmd[7:-1]
                 try:
-                    line = raw_input(prompt)
+                    line = unicode(raw_input(prompt), encoding)
                 except (EOFError, KeyboardInterrupt):
                     break
                 pipeout.write(line + "\n")
             elif cmd.startswith("PRINT "):
-                text = cmd[6:-1]
-                print(text, end="")
+                print(cmd[6:-1], end="")
             elif cmd.startswith("PRINTLINE "):
-                count = int(cmd[10:-1])
-                for i in range(count):
-                    print(readline()[:-1])
+                print(cmd[10:-1])
             else:
                 print("Client: got unexpected command " + cmd)
                 break
