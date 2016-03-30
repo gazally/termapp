@@ -1,3 +1,21 @@
+# A little server that interacts with the user via another process inside
+# of Terminal.app
+#
+# Copyright (C) 2016 Gemini Lasswell
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from __future__ import unicode_literals
 
 import appscript
@@ -27,11 +45,11 @@ def redirect_stds(stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
 
 
 class Shell(object):
-    """Wrapper for the InteractiveConsole or other similar object that
-    captures its output instead of letting it use stdout/stderr.
+    """Wrapper for the InteractiveConsole push method or other similar
+    function. Redirects its output instead of letting it use stdout/stderr.
     """
-    def __init__(self, interaction, inpipe, outpipe):
-        self.interaction = interaction
+    def __init__(self, push, inpipe, outpipe):
+        self.push_func = push
         self.inpipe, self.outpipe = inpipe, outpipe
 
     def push(self, line):
@@ -39,7 +57,7 @@ class Shell(object):
         and return a flag indicating which prompt to use next """
         with redirect_stds(stdin=self.inpipe,
                            stdout=self.outpipe, stderr=self.outpipe):
-            return self.interaction.push(line)
+            return self.push_func(line)
 
 
 class ClientIO(StringIO):
@@ -82,13 +100,12 @@ class ClientIO(StringIO):
         self.truncate()
 
 
-def run_server(interaction, prompt, temp_path):
+def run_server(push, prompt, temp_path):
     """Warning in 20 point bold type: this will delete temp_path!!!
 
-    besides that, do a read-eval-print loop in the context of
-    namespace, doing I/O through named pipes set up in the
-    temp_path directory, which will be unlinked along with the pipes
-    as soon as they are set up.
+    besides that, do a read-eval-print loop doing I/O through named
+    pipes set up in the temp_path directory, which will be unlinked
+    along with the pipes as soon as they are set up.
 
     The first thing the client does is write its encoding to the uplink
     pipe. We get that so we can properly open the pipes to handle unicode.
@@ -113,7 +130,7 @@ def run_server(interaction, prompt, temp_path):
                 with open(os.devnull, "r") as devnull:
                     shutil.rmtree(temp_path)
                     client = ClientIO(pipeout)
-                    shell = Shell(interaction, devnull, client)
+                    shell = Shell(push, devnull, client)
 
                     more_input = False
                     while True:
@@ -127,39 +144,40 @@ def run_server(interaction, prompt, temp_path):
         log.debug("Exception in interactive console thread", exc_info=True)
 
 
-def start_interaction_thread(interaction, prompt):
-    """ Run the python script client.py (which must be in the current
+def start_interaction_thread(push, prompt):
+    """ Run the python script termapp_client.py (which must be in the current
     directory) in a Terminal window. Set its current directory to the
     current directory, and pass as an argument to it the name of a temporary
     directory where it should look for named pipes to communcate with.
 
     Arguments:
-    interaction should be an object with a method called push, which takes
-        a line of input and returns True if the secondary prompt should be used
-        next and False if the primary prompt should be used.
-    prompt is a prefix for the prompt, this adds " >> " for the primary prompt
-        and "... " for the secondary
+    push -- a function which takes a line of input and returns True if the
+        secondary prompt should be used next and False if the primary prompt
+        should be used. push should use sys.stdout and sys.stderr for its
+        output, but reading from sys.stdin will just give it EOF.
+        prompt is a prefix for the prompt, " >> " will be added to make the
+        primary prompt and "... " for the secondary
     """
     path = tempfile.mkdtemp()
 
     app = appscript.app("Terminal")
-    app.do_script("cd {0};python client.py {1};exit".format(quote(os.getcwd()),
-                                                            quote(path)))
+    app.do_script("cd {0};python termapp_client.py {1};exit".format(
+        quote(os.getcwd()), quote(path)))
     t = Thread(target=run_server, name="console",
-               args=(interaction, prompt, path))
+               args=(push, prompt, path))
     t.setDaemon(True)
     t.start()
     return t
 
 
-def start_shell_thread(prompt, namespace):
-    return start_interaction_thread(InteractiveConsole(namespace), prompt)
+def start_shell_thread(namespace, prompt):
+    return start_interaction_thread(InteractiveConsole(namespace).push, prompt)
 
 
 if __name__ == "__main__":
     namespace = locals().copy()
     namespace.update(globals())
-    t = start_shell_thread("[" + __file__ + "]", namespace)
+    t = start_shell_thread(namespace, "[" + __file__ + "]")
     while True:
         if not t.is_alive():
             break

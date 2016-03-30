@@ -1,4 +1,22 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
+# a little client to run in Terminal.app with readline working
+# so a separate process can interact with the user
+#
+# Copyright (C) 2016 Gemini Lasswell
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from __future__ import print_function
 from __future__ import unicode_literals
 
@@ -9,6 +27,17 @@ import sys
 
 
 def run_client(path):
+    """ given a path in which to look for named pipes,
+    first write the encoding that sys.stdin is using to
+    the uplink pipe (named ".up.fifo"). Then open uplink
+    and downlink pipes using that encoding.
+
+    Read lines from the downlink pipe to get commands:
+    PROMPT -- get the results of raw_input and write to uplink
+    PRINT -- print text not followed by trailing newline
+    PRINTLINE -- print text and trailing newline
+    """
+
     encoding = sys.stdin.encoding
     with open(os.path.join(path, ".up.fifo"), "w") as pipeout:
         pipeout.write(encoding + "\n")
