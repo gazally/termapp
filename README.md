@@ -32,8 +32,8 @@ from termapp_server import start_shell_thread
         """ Called by the Indigo UI for the Start Interactive Interpreter
         menu item.
         """
-        namespace = locals().copy()
-        namespace.update(globals())
+        namespace = globals().copy()
+        namespace.update(locals())
         start_shell_thread(namespace, "Indigo Plugin")
 ```
 
