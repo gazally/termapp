@@ -34,7 +34,7 @@ from termapp_server import start_shell_thread
         """
         namespace = globals().copy()
         namespace.update(locals())
-        start_shell_thread(namespace, "Indigo Plugin")
+        start_shell_thread(namespace, "Welcome message", "prompt prefix")
 ```
 
 Once you do this you will have a Python shell with access to your
@@ -62,7 +62,7 @@ from termapp_server import start_interaction_thread
     def startLameChatbot(self):
         """ Called by the Indigo UI for the Start Really Lame Chatbot menu item.
         """
-        start_interaction_thread(self.chat, "chatbot")
+        start_interaction_thread(self.chat, "Welcome message", "prompt prefix")
 ```
 
 The threads created are daemon threads so they will not block a plugin
